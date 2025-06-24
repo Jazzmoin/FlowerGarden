@@ -106,11 +106,11 @@ impl Flower {
             .color(self.gene.centre_color);
 
         // debug cirle
-        draw.ellipse()
-            .xy(self.pos)
-            .radius(self.radius())
-            .no_fill()
-            .stroke(RED)
-            .stroke_weight(1.0);
+        // draw.ellipse()
+        //     .xy(self.pos)
+        //     .radius(self.radius())
+        //     .no_fill()
+        //     .stroke(RED)
+        //     .stroke_weight(1.0);
     }
 }

@@ -3,7 +3,7 @@ mod flower;
 use nannou::prelude::*;
 use nannou;
 use std::time::Instant;
-
+use nannou_egui::{self, egui, Egui};
 use nannou::winit::event::VirtualKeyCode;
 use flower::*;
 
@@ -13,7 +13,7 @@ const HEIGHT:u32 = 1080;
 struct Model {
     flowers: Vec<Flower>,
     current_gene: FlowerGene,
-    cursor_pos: Vec2,
+    egui: Egui,
 }
 
 fn main() {
@@ -21,6 +21,27 @@ fn main() {
         .update(update)
         .fullscreen()
         .run();
+}
+
+fn setup(app: &App) -> Model {
+    let window_id = app.new_window()
+        .size(WIDTH, HEIGHT)
+        .title("Bloup")
+        .view(view)
+        .raw_event(raw_window_event)
+        .event(event)
+        .build().unwrap();
+
+    let window = app.window(window_id).unwrap();
+    let egui = Egui::from_window(&window);
+
+    app.window(window_id).unwrap().set_cursor_visible(false);
+
+    Model {
+        flowers: Vec::new(),
+        current_gene: Default::default(),
+        egui
+    }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
@@ -31,45 +52,65 @@ fn view(app: &App, model: &Model, frame: Frame) {
     for flower in model.flowers.iter() {
         flower.draw(&draw, &current_time);
     }
-    
+
+
+    draw.to_frame(app, &frame).unwrap();
+    model.egui.draw_to_frame(&frame).unwrap();
+    let new_draw = app.draw();
+
+    draw_cursor(&new_draw, app.mouse.position());
+    new_draw.to_frame(app, &frame).unwrap();
+}
+
+fn draw_cursor(draw: &Draw, cursor_pos: Vec2) {
     draw.ellipse()
-        .xy(model.cursor_pos)
+        .xy(cursor_pos)
         .wh(Vec2::new(22.0, 10.0))
         .rotate(PI / 4.0)
         .color(rgb8(90, 62, 43))
         .stroke(rgb8(56, 44, 32))
         .stroke_weight(1.0);
-    
-    
+
+
     draw.ellipse()
-        .xy(model.cursor_pos)
+        .xy(cursor_pos)
         .wh(Vec2::new(22.0, 4.0))
         .rotate(PI / 4.0)
         .no_fill()
         .stroke(rgb8(56, 44, 32))
         .stroke_weight(1.0);
+}
+
+fn raw_window_event(_app: &App, model: &mut Model, event: &nannou::winit::event::WindowEvent) {
+    // Let egui handle things like keyboard and mouse input.
+    model.egui.handle_raw_event(event);
+}
+
+fn update(_app: &App, model: &mut Model, update: Update) {
+    let egui = &mut model.egui;
+    let gene = &mut model.current_gene;
+
+    egui.set_elapsed_time(update.since_start);
+    let ctx = egui.begin_frame();
+
+    egui::Window::new("Flower Controls").show(&ctx, |ui| {
+        ui.label("Petal Count:");
+        ui.add(egui::Slider::new(&mut gene.num_petals, 3..=20));
+
+        ui.label("Petal Radius:");
+        ui.add(egui::Slider::new(&mut gene.petal_radius, 1.0..=100.0));
+
+        ui.label("Centre Size:");
+        ui.add(egui::Slider::new(&mut gene.centre_size, 1.0..=100.0));
+
+        ui.label("Centre Distance:");
+        ui.add(egui::Slider::new(&mut gene.centre_dist, 0.0..=100.0));
+
+        ui.label("Bloom Duration:");
+        ui.add(egui::Slider::new(&mut gene.bloom_duration, 1.0..=10.0));
+    });
     
-    draw.to_frame(app, &frame).unwrap();
 }
-
-fn setup(app: &App) -> Model {
-    let _window_id = app.new_window()
-        .size(WIDTH, HEIGHT)
-        .title("Bloup")
-        .view(view)
-        .event(event)
-        .build().unwrap();
-
-    app.window(_window_id).unwrap().set_cursor_visible(false);
-
-    Model {
-        flowers: Vec::new(),
-        current_gene: Default::default(),
-        cursor_pos: Vec2::new(0.0,0.0)
-    }
-}
-
-fn update(_app: &App, _model: &mut Model, _update: Update) {}
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
     match event {
@@ -98,10 +139,6 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
             // model.current_gene.centre_size += mutation_val;
             // model.current_gene.centre_dist += mutation_val;
             // model.current_gene.petal_radius += mutation_val;
-        }
-
-        MouseMoved(_) => {
-            model.cursor_pos = app.mouse.position();
         }
 
         KeyPressed(key) => {
