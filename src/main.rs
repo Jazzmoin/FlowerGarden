@@ -3,9 +3,27 @@ mod flower;
 use nannou::prelude::*;
 use nannou;
 use std::time::Instant;
+use nannou::color::IntoLinSrgba;
 use nannou_egui::{self, egui, Egui};
 use nannou::winit::event::VirtualKeyCode;
 use flower::*;
+
+// TODO:
+//  - new name
+//  - github repo
+//  - flower death
+//  - petal definition 
+//  - petal shapes
+//  - petal layering?
+//  - three flower presets
+//  - petal width param
+//  - allow the flowers to spread on their own
+//  - serialisable flower gene (google serde derive)
+//  - visual indicator if a flower won't fit
+//  - colour picker in egui 
+//  - add a master size to the flower gene and make the flowers a fraction of that size
+//  - inner and outer circle for flower centre
+
 
 const WIDTH:u32 = 1920;
 const HEIGHT:u32 = 1080;
@@ -101,7 +119,7 @@ fn update(_app: &App, model: &mut Model, update: Update) {
         ui.add(egui::Slider::new(&mut gene.petal_radius, 1.0..=100.0));
 
         ui.label("Centre Size:");
-        ui.add(egui::Slider::new(&mut gene.centre_size, 1.0..=100.0));
+        ui.add(egui::Slider::new(&mut gene.centre_radius, 1.0..=50.0));
 
         ui.label("Centre Distance:");
         ui.add(egui::Slider::new(&mut gene.centre_dist, 0.0..=100.0));
@@ -127,7 +145,7 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
             }
 
             let mut scaled_flower = model.current_gene.clone();
-            scaled_flower.centre_size *= scale;
+            scaled_flower.centre_radius *= scale;
             scaled_flower.centre_dist *= scale;
             scaled_flower.petal_radius *= scale;
 
@@ -148,24 +166,26 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
                 }
                 VirtualKeyCode::Key2 => {
                     model.current_gene = FlowerGene {
-                        centre_size: 50.0,
+                        centre_radius: 25.0,
                         centre_dist: 50.0,
-                        centre_color: Srgb::new(245, 213, 71),
+                        centre_color: Srgb::<u8>::new(245, 213, 71).into_lin_srgba(),
                         num_petals: 9,
                         petal_radius: 40.0,
-                        petal_color: Srgb::new(232, 174, 183),
+                        petal_color: Srgb::<u8>::new(232, 174, 183).into_lin_srgba(),
                         bloom_duration: 7.0,
+                        ..Default::default()
                     }
                 }
                 VirtualKeyCode::Key3 => {
                     model.current_gene = FlowerGene {
-                        centre_size: 50.0,
+                        centre_radius: 25.0,
                         centre_dist: 50.0,
-                        centre_color: Srgb::new(216, 111, 69),
+                        centre_color: Srgb::<u8>::new(216, 111, 69).into_lin_srgba(),
                         num_petals: 6,
                         petal_radius: 40.0,
-                        petal_color: Srgb::new(189, 160, 203),
+                        petal_color: Srgb::<u8>::new(189, 160, 203).into_lin_srgba(),
                         bloom_duration: 7.0,
+                        ..Default::default()
                     }
                 }
                 _ => {}
@@ -174,10 +194,3 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
         _ => {}
     }
 }
-
-
-
-// TODOs:
-// add egui
-// make a cursor
-// make the cursor flash red when a flower can't be placed

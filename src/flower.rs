@@ -1,30 +1,33 @@
-use std::cmp::max;
+use nannou::color::conv::IntoLinSrgba;
 use crate::*;
 use nannou;
 use nannou::prelude::*;
 
 use std::time::Instant;
+use nannou::color::ComponentWise;
 
 #[derive(Clone, Debug)]
 pub(crate) struct FlowerGene {
-    pub(crate) centre_size: f32,
+    pub(crate) centre_radius: f32,
     pub(crate) centre_dist: f32,
-    pub(crate) centre_color: Srgb<u8>,
+    pub(crate) centre_color: LinSrgba<f32>,
     pub(crate) num_petals: usize,
     pub(crate) petal_radius: f32,
-    pub(crate) petal_color: Srgb<u8>,
+    pub(crate) petal_thickness: f32,
+    pub(crate) petal_color: LinSrgba<f32>,
     pub(crate) bloom_duration: f32,
 }
 
 impl Default for FlowerGene {
     fn default() -> Self {
         FlowerGene {
-            centre_size: 40.0,
+            centre_radius: 20.0,
             centre_dist: 40.0,
-            centre_color: Srgb::new(210, 181, 64),
+            centre_color: Srgb::<u8>::new(236, 178, 63).into_lin_srgba(),
             num_petals: 5,
             petal_radius: 25.0,
-            petal_color: FLORALWHITE,
+            petal_thickness: 0.75,
+            petal_color: FLORALWHITE.into_lin_srgba(),
             bloom_duration: 5.0,
         }
     }
@@ -65,7 +68,7 @@ impl Flower {
     pub fn radius(&self) -> f32 {
         self.gene.centre_dist + self.gene.petal_radius
     }
-    
+
     pub fn max_radius(new_pos: Vec2, others: &[Flower]) -> f32 {
         others
             .iter()
@@ -87,22 +90,36 @@ impl Flower {
             let p =
                 self.pos + Vec2::new(petal_angle.cos(), petal_angle.sin()) * distance_from_centre;
 
+            let petal_height = (petal % 2) as f32;
+            
             draw.ellipse()
                 .xy(p)
-                .wh(Vec2::new(1.0, 0.6) * petal_radius * 2.0)
+                .z(-petal_height)
+                .wh(Vec2::new(1.0, self.gene.petal_thickness) * petal_radius * 2.0)
                 .rotate(petal_angle)
-                .color(self.gene.petal_color);
+                .color(self.gene.petal_color)
+                .stroke(mult_colour(self.gene.petal_color, 0.5))
+                .stroke_weight(2.0);
         }
 
-        let centre_size = self.bloom_progress(elapsed) * self.gene.centre_size;
+        let centre_radius = self.bloom_progress(elapsed) * self.gene.centre_radius;
+
         draw.ellipse()
             .xy(self.pos)
-            .wh(Vec2::splat(centre_size))
+            .z(-2.0)
+            .radius(centre_radius)
+            .color(self.gene.petal_color)
+            .stroke(mult_colour(self.gene.petal_color, 0.5))
+            .stroke_weight(4.0);
+        
+        draw.ellipse()
+            .xy(self.pos)
+            .radius(centre_radius)
             .color(self.gene.petal_color);
 
         draw.ellipse()
             .xy(self.pos)
-            .wh(Vec2::splat(centre_size) / 1.5)
+            .radius(centre_radius / 1.5)
             .color(self.gene.centre_color);
 
         // debug cirle
@@ -113,4 +130,13 @@ impl Flower {
         //     .stroke(RED)
         //     .stroke_weight(1.0);
     }
+}
+
+pub fn mult_colour(colour: LinSrgba<f32>, mult: f32) -> LinSrgba {
+    let mut colour = colour;
+    colour.red *= mult;
+    colour.blue *= mult;
+    colour.green *= mult;
+    
+    colour
 }
