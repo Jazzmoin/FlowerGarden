@@ -70,7 +70,7 @@ impl Flower {
         others
             .iter()
             .map(|other| other.pos.distance(new_pos) - other.radius())
-            .fold(f32::INFINITY, f32::min)
+            .fold(f32::INFINITY, |acc, b| acc.min(b) )
             .max(0.0)
     }
     // return option or add an assert when creating a flower
@@ -106,11 +106,11 @@ impl Flower {
             .color(self.gene.centre_color);
 
         // debug cirle
-        // draw.ellipse()
-        //     .xy(self.pos)
-        //     .radius(self.radius())
-        //     .no_fill()
-        //     .stroke(RED)
-        //     .stroke_weight(1.0);
+        draw.ellipse()
+            .xy(self.pos)
+            .radius(self.radius())
+            .no_fill()
+            .stroke(RED)
+            .stroke_weight(1.0);
     }
 }
