@@ -12,15 +12,12 @@ use flower::*;
 //  - new name
 //  - github repo
 //  - flower death
-//  - petal definition 
 //  - petal shapes
-//  - petal layering?
 //  - three flower presets
-//  - petal width param
 //  - allow the flowers to spread on their own
 //  - serialisable flower gene (google serde derive)
 //  - visual indicator if a flower won't fit
-//  - colour picker in egui 
+//  - colour picker in egui
 //  - add a master size to the flower gene and make the flowers a fraction of that size
 //  - inner and outer circle for flower centre
 
@@ -71,25 +68,37 @@ fn view(app: &App, model: &Model, frame: Frame) {
         flower.draw(&draw, &current_time);
     }
 
-
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
     let new_draw = app.draw();
 
-    draw_cursor(&new_draw, app.mouse.position());
+    draw_cursor(app, &new_draw, model, app.mouse.position());
     new_draw.to_frame(app, &frame).unwrap();
 }
 
-fn draw_cursor(draw: &Draw, cursor_pos: Vec2) {
+fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
+    let colour = if can_place_flower(model, cursor_pos).is_some() {
+        rgb8(90, 62, 43)
+    } else {
+        RED
+        
+        // if app.duration.since_start.as_secs_f64() {
+             // somehow this makes it flash - too tired to figure it out
+        // }
+        // 
+        
+           
+        
+    };
+    
     draw.ellipse()
         .xy(cursor_pos)
         .wh(Vec2::new(22.0, 10.0))
         .rotate(PI / 4.0)
-        .color(rgb8(90, 62, 43))
+        .color(colour)
         .stroke(rgb8(56, 44, 32))
         .stroke_weight(1.0);
-
-
+    
     draw.ellipse()
         .xy(cursor_pos)
         .wh(Vec2::new(22.0, 4.0))
@@ -127,7 +136,22 @@ fn update(_app: &App, model: &mut Model, update: Update) {
         ui.label("Bloom Duration:");
         ui.add(egui::Slider::new(&mut gene.bloom_duration, 1.0..=10.0));
     });
-    
+}
+
+fn can_place_flower(model: &Model, mouse_position: Vec2) -> Option<FlowerGene> {
+    let max_radius = Flower::max_radius(mouse_position, &model.flowers);
+    let initial_radius = model.current_gene.centre_dist + model.current_gene.petal_radius;
+    let scale = (max_radius / initial_radius).min(1.0);
+
+    if scale > 0.25 {
+        let mut scaled_flower = model.current_gene.clone();
+        scaled_flower.centre_radius *= scale;
+        scaled_flower.centre_dist *= scale;
+        scaled_flower.petal_radius *= scale;
+        Some(scaled_flower)
+    } else {
+        None
+    }
 }
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
@@ -135,22 +159,11 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
         MousePressed(_) => {
             let mouse_position = app.mouse.position();
             let orientation = random::<f32>() * TAU;
-            let max_radius = Flower::max_radius(mouse_position, &model.flowers);
-
-            let initial_radius = model.current_gene.centre_dist + model.current_gene.petal_radius;
-            let scale = (max_radius / initial_radius).min(1.0);
-
-            if scale < 0.25 {
-                return
+           
+            if let Some(scaled_flower) = can_place_flower(model, mouse_position) {
+                let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
+                model.flowers.push(new_flower);
             }
-
-            let mut scaled_flower = model.current_gene.clone();
-            scaled_flower.centre_radius *= scale;
-            scaled_flower.centre_dist *= scale;
-            scaled_flower.petal_radius *= scale;
-
-            let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
-            model.flowers.push(new_flower);
 
             // // Todo: mutate model.flower_gene which will result in the next flower being different.
             // let mutation_val = 2.0;
