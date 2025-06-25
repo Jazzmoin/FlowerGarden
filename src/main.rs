@@ -3,7 +3,7 @@ mod flower;
 use nannou::prelude::*;
 use nannou;
 use std::time::Instant;
-use nannou::color::IntoLinSrgba;
+use nannou::color::{ConvertInto, IntoLinSrgba};
 use nannou_egui::{self, egui, Egui};
 use nannou::winit::event::VirtualKeyCode;
 use flower::*;
@@ -20,6 +20,7 @@ use flower::*;
 //  - colour picker in egui
 //  - add a master size to the flower gene and make the flowers a fraction of that size
 //  - inner and outer circle for flower centre
+//  - right-click to remove flower 
 
 
 const WIDTH:u32 = 1920;
@@ -156,20 +157,26 @@ fn can_place_flower(model: &Model, mouse_position: Vec2) -> Option<FlowerGene> {
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
     match event {
-        MousePressed(_) => {
+        MousePressed(button) => {
             let mouse_position = app.mouse.position();
             let orientation = random::<f32>() * TAU;
            
-            if let Some(scaled_flower) = can_place_flower(model, mouse_position) {
-                let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
-                model.flowers.push(new_flower);
+            match button {
+                MouseButton::Left => {
+                    if let Some(scaled_flower) = can_place_flower(model, mouse_position) {
+                        let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
+                        model.flowers.push(new_flower);
+                    }
+                }
+                MouseButton::Right => {
+                    if let Some(flower_index) = model.flowers.iter().position(|f|{
+                        mouse_position.distance(f.pos) < f.radius()
+                    }) {
+                        model.flowers.remove(flower_index);
+                    }
+                }
+                _ => {}
             }
-
-            // // Todo: mutate model.flower_gene which will result in the next flower being different.
-            // let mutation_val = 2.0;
-            // model.current_gene.centre_size += mutation_val;
-            // model.current_gene.centre_dist += mutation_val;
-            // model.current_gene.petal_radius += mutation_val;
         }
 
         KeyPressed(key) => {
