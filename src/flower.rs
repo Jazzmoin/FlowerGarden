@@ -1,10 +1,14 @@
+use std::ops::RangeInclusive;
 use nannou::color::conv::IntoLinSrgba;
 use crate::*;
 use nannou;
 use nannou::prelude::*;
+use nannou::color::IntoColor;
 
 use std::time::Instant;
-use nannou::color::ComponentWise;
+use nannou_egui::color_picker::Alpha;
+use nannou_egui::egui::emath::Numeric;
+use nannou_egui::egui::{Color32, Ui};
 
 #[derive(Clone, Debug)]
 pub(crate) struct FlowerGene {
@@ -32,6 +36,38 @@ impl Default for FlowerGene {
         }
     }
 }
+
+impl FlowerGene {
+    pub fn egui(&mut self, ui: &mut Ui) {
+        // let x = (1.)..=10.;
+        FlowerGene::slider(&mut self.num_petals, "Petal Count:", 3..=20, ui);
+
+        FlowerGene::slider(&mut self.petal_radius, "Petal Radius:", 1.0..=100.0, ui);
+
+        FlowerGene::slider(&mut self.centre_radius, "Centre Size:", 1.0..=50.0, ui);
+
+        FlowerGene::slider(&mut self.centre_dist, "Centre Distance:", 0.0..=100.0, ui);
+
+        FlowerGene::slider(&mut self.bloom_duration, "Bloom Duration:", 1.0..=10.0, ui);
+
+        FlowerGene::picker(&mut self.petal_color, "Petal Colour:", ui);
+    }
+    
+    fn slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui) {
+        ui.label(name);
+        ui.add(egui::Slider::new(value, range));
+    }
+
+    fn picker(value: &mut LinSrgba, name: &str, ui: &mut Ui) {
+        ui.label(name);
+        let c: Srgba<u8> = value.into_encoding().into_format();
+        let mut c = Color32::from_rgb(c.red, c.green, c.blue);
+        if egui::color_picker::color_picker_color32(ui, &mut c, Alpha::Opaque) {
+            *value = Srgb::<u8>::from_components((c.r(), c.g(), c.b())).into_lin_srgba();
+        };
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub(crate) struct Flower {

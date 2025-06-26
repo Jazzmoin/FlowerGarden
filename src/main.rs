@@ -16,11 +16,10 @@ use flower::*;
 //  - three flower presets
 //  - allow the flowers to spread on their own
 //  - serialisable flower gene (google serde derive)
-//  - visual indicator if a flower won't fit
 //  - colour picker in egui
 //  - add a master size to the flower gene and make the flowers a fraction of that size
-//  - inner and outer circle for flower centre
-//  - right-click to remove flower 
+//  - inner and outer circle for flower centre 
+//  - size slider
 
 
 const WIDTH:u32 = 1920;
@@ -116,26 +115,12 @@ fn raw_window_event(_app: &App, model: &mut Model, event: &nannou::winit::event:
 
 fn update(_app: &App, model: &mut Model, update: Update) {
     let egui = &mut model.egui;
-    let gene = &mut model.current_gene;
 
     egui.set_elapsed_time(update.since_start);
     let ctx = egui.begin_frame();
 
     egui::Window::new("Flower Controls").show(&ctx, |ui| {
-        ui.label("Petal Count:");
-        ui.add(egui::Slider::new(&mut gene.num_petals, 3..=20));
-
-        ui.label("Petal Radius:");
-        ui.add(egui::Slider::new(&mut gene.petal_radius, 1.0..=100.0));
-
-        ui.label("Centre Size:");
-        ui.add(egui::Slider::new(&mut gene.centre_radius, 1.0..=50.0));
-
-        ui.label("Centre Distance:");
-        ui.add(egui::Slider::new(&mut gene.centre_dist, 0.0..=100.0));
-
-        ui.label("Bloom Duration:");
-        ui.add(egui::Slider::new(&mut gene.bloom_duration, 1.0..=10.0));
+        model.current_gene.egui(ui);
     });
 }
 
