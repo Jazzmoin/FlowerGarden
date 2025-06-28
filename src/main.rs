@@ -3,7 +3,6 @@ mod flower;
 use nannou::prelude::*;
 use nannou;
 use std::time::Instant;
-// use nannou::color::{IntoLinSrgba};
 use nannou_egui::{self, egui, Egui};
 use nannou::winit::event::VirtualKeyCode;
 use flower::*;
@@ -16,9 +15,6 @@ use flower::*;
 //  - three flower presets
 //  - allow the flowers to spread on their own
 //  - serialisable flower gene (google serde derive)
-//  - add a master size to the flower gene and make the flowers a fraction of that size
-//  - inner and outer circle for flower centre 
-//  - size slider
 
 
 const WIDTH:u32 = 1920;
@@ -28,6 +24,7 @@ struct Model {
     flowers: Vec<Flower>,
     current_gene: FlowerGene,
     egui: Egui,
+    mouse_down: bool,
 }
 
 fn main() {
@@ -54,7 +51,8 @@ fn setup(app: &App) -> Model {
     Model {
         flowers: Vec::new(),
         current_gene: Default::default(),
-        egui
+        egui,
+        mouse_down: false,
     }
 }
 
@@ -96,6 +94,7 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
         MousePressed(button) => {
             let mouse_position = app.mouse.position();
             let orientation = random::<f32>() * TAU;
+            model.mouse_down = true;
            
             match button {
                 MouseButton::Left => {
@@ -152,15 +151,15 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
 }
 
 fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
-    let max_radius = Flower::max_radius(cursor_pos, &model.flowers);
+    let max_radius = Flower::max_radius(app, cursor_pos, &model.flowers);
     if max_radius.is_finite() {
-        draw.ellipse().xy(cursor_pos).no_fill().radius(max_radius).stroke(BLUE).stroke_weight(3.0);
+        // draw.ellipse().xy(cursor_pos).no_fill().radius(max_radius).stroke(BLUE).stroke_weight(3.0);
     }
 
     let colour = if let Some(gene) = can_place_flower(app, model, cursor_pos) {
-        draw.ellipse().xy(cursor_pos).no_fill().radius(gene.size_px).stroke(PURPLE).stroke_weight(2.0);
-
-
+    //     draw.ellipse().xy(cursor_pos).no_fill().radius(gene.size_px).stroke(PURPLE).stroke_weight(2.0);
+    // 
+    // 
         rgb8(90, 62, 43)
     } else {
         RED
@@ -184,16 +183,18 @@ fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
 }
 
 fn can_place_flower(app: &App, model: &Model, mouse_position: Vec2) -> Option<FlowerGene> {
-    let max_radius = Flower::max_radius(mouse_position, &model.flowers);
+    let max_radius = Flower::max_radius(app, mouse_position, &model.flowers);
     let scale = (max_radius / model.current_gene.size_px).min(1.0);
-    let border = app.main_window().rect();
+    // let border = app.main_window().rect();
     
-    let within_border = mouse_position.x - scale >= border.left()
-        && mouse_position.x + scale <= border.right()
-        && mouse_position.y + scale <= border.top()
-        && mouse_position.y - scale >= border.bottom();
-
-    if scale > 0.25 && within_border {
+    // let within_border = mouse_position.x - scale >= border.left()
+    //     && mouse_position.x + scale <= border.right()
+    //     && mouse_position.y + scale <= border.top()
+    //     && mouse_position.y - scale >= border.bottom();
+    
+    // if model.egui;
+    
+    if scale > 0.25 {
         let mut new = model.current_gene.clone();
         new.size_px *= scale;
         Some(new)

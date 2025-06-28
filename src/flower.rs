@@ -46,18 +46,23 @@ impl FlowerGene {
         // let x = (1.)..=10.;
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
-        FlowerGene::slider(&mut self.num_petals, "Petal Count:", 3..=20, ui);
+        FlowerGene::stepped_slider(&mut self.num_petals, "Petal Count:", 4..=20, ui,2.0);
 
         FlowerGene::slider(&mut self.bloom_duration, "Bloom Duration:", 1.0..=10.0, ui);
 
         FlowerGene::picker(&mut self.petal_color, "Petal Colour:", ui);
-        
-        
+
+
     }
     
     fn slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui) {
         ui.label(name);
         ui.add(egui::Slider::new(value, range));
+    }
+    
+    fn stepped_slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui, step: f64) {
+        ui.label(name);
+        ui.add(egui::Slider::new(value, range).step_by(step));
     }
 
     fn picker(value: &mut LinSrgba, name: &str, ui: &mut Ui) {
@@ -110,9 +115,9 @@ impl Flower {
         let petal_distance = self.gene.centre_dist_prop / sum;
         let petal_radius = self.gene.petal_radius_prop / sum;
         let petal_width = self.gene.petal_width_prop / sum;
-        
+
         let petal_wh = Vec2::new(petal_radius, petal_width) * 2.0;
-        
+
         for petal in 0..self.gene.num_petals {
             let petal_prop = petal as f32 / self.gene.num_petals as f32;
             let petal_angle = petal_prop * TAU + self.orientation; // TAU = 2 * pi = 360 degrees
@@ -128,7 +133,7 @@ impl Flower {
                 .stroke(mult_colour(self.gene.petal_color, 0.5))
                 .stroke_weight(2.0);
         }
-        
+
         draw.ellipse()
             .xy(self.pos)
             .z(-2.0)
@@ -136,12 +141,12 @@ impl Flower {
             .color(self.gene.petal_color)
             .stroke(mult_colour(self.gene.petal_color, 0.5))
             .stroke_weight(4.0);
-        
+
         draw.ellipse()
             .xy(self.pos)
             .radius(self.gene.centre_radius_outer_prop * scale)
             .color(self.gene.petal_color);
-        
+
         draw.ellipse()
             .xy(self.pos)
             .radius(self.gene.centre_radius_inner_prop * scale)
@@ -155,13 +160,23 @@ impl Flower {
         //     .stroke(RED)
         //     .stroke_weight(1.0);
     }
-    
-    pub fn max_radius(new_pos: Vec2, others: &[Flower]) -> f32 {
-        others
+
+    pub fn max_radius(app: &App, new_pos: Vec2, others: &[Flower]) -> f32 {
+        let radius = others
             .iter()
             .map(|other| other.pos.distance(new_pos) - other.gene.size_px)
             .fold(f32::INFINITY, |acc, b| acc.min(b) )
-            .max(0.0)
+            .max(0.0) + 1.0;
+        
+        let border = app.window_rect();
+        let left_dist:f32 = new_pos.x - border.left();
+        let right_dist:f32 = border.right() - new_pos.x;
+        let top_dist:f32 = border.top() - new_pos.y;
+        let bottom_dist:f32 = new_pos.y - border.bottom();
+        
+        let closest_edge = left_dist.min(right_dist).min(top_dist).min(bottom_dist);
+        
+        radius.min(closest_edge)
     }
 }
 
