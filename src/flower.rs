@@ -3,7 +3,6 @@ use nannou::color::conv::IntoLinSrgba;
 use crate::*;
 use nannou;
 use nannou::prelude::*;
-use nannou::color::IntoColor;
 
 use std::time::Instant;
 use nannou_egui::color_picker::Alpha;
@@ -30,9 +29,9 @@ impl Default for FlowerGene {
             size_px: 65.0,
             centre_radius_inner_prop: 0.3,
             centre_radius_outer_prop: 0.4,
-            centre_dist_prop: 0.65,
-            petal_radius_prop: 0.35 ,
-            petal_width_prop: 0.27,
+            centre_dist_prop: 0.99,
+            petal_radius_prop: 0.62 ,
+            petal_width_prop: 0.42,
             num_petals: 5,
             bloom_duration: 5.0,
             centre_color: Srgb::<u8>::new(236, 178, 63).into_lin_srgba(),
@@ -43,7 +42,6 @@ impl Default for FlowerGene {
 
 impl FlowerGene {
     pub fn egui(&mut self, ui: &mut Ui) {
-        // let x = (1.)..=10.;
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
         FlowerGene::stepped_slider(&mut self.num_petals, "Petal Count:", 4..=20, ui,2.0);
@@ -51,8 +49,6 @@ impl FlowerGene {
         FlowerGene::slider(&mut self.bloom_duration, "Bloom Duration:", 1.0..=10.0, ui);
 
         FlowerGene::picker(&mut self.petal_color, "Petal Colour:", ui);
-
-
     }
     
     fn slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui) {
@@ -151,14 +147,6 @@ impl Flower {
             .xy(self.pos)
             .radius(self.gene.centre_radius_inner_prop * scale)
             .color(self.gene.centre_color);
-
-        // debug cirle
-        // draw.ellipse()
-        //     .xy(self.pos)
-        //     .radius(scale)
-        //     .no_fill()
-        //     .stroke(RED)
-        //     .stroke_weight(1.0);
     }
 
     pub fn max_radius(app: &App, new_pos: Vec2, others: &[Flower]) -> f32 {

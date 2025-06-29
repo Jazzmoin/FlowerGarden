@@ -4,7 +4,6 @@ use nannou::prelude::*;
 use nannou;
 use std::time::Instant;
 use nannou_egui::{self, egui, Egui};
-use nannou::winit::event::VirtualKeyCode;
 use flower::*;
 
 // TODO:
@@ -25,6 +24,7 @@ struct Model {
     current_gene: FlowerGene,
     egui: Egui,
     mouse_down: bool,
+    mouse_history: Vec<Vec2>
 }
 
 fn main() {
@@ -53,6 +53,7 @@ fn setup(app: &App) -> Model {
         current_gene: Default::default(),
         egui,
         mouse_down: false,
+        mouse_history: Vec::new(),
     }
 }
 
@@ -65,10 +66,19 @@ fn view(app: &App, model: &Model, frame: Frame) {
         flower.draw(&draw, &current_time);
     }
 
+    // flower path guide
+    if model.mouse_history.len() >= 2 {
+        draw.polyline()
+            .weight(1.5)
+            .color(rgba8(200, 200, 200, 50))
+            .points(model.mouse_history.clone());
+    }
+
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
-    let new_draw = app.draw();
 
+    // new draw to bring cursor in front of egui
+    let new_draw = app.draw();
     draw_cursor(app, &new_draw, model, app.mouse.position());
     new_draw.to_frame(app, &frame).unwrap();
 }
@@ -84,17 +94,39 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     egui.set_elapsed_time(update.since_start);
     let ctx = egui.begin_frame();
 
-    egui::Window::new("Flower Controls").show(&ctx, |ui| {
+    let mut style = (*ctx.style()).clone();
+    style.visuals = egui::Visuals::dark();
+    // 
+    // style.visuals.window_fill = egui::Color32::from_rgb(253, 246, 227); // #FDF6E3
+    // 
+    // style.visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(244, 198, 165); // #F4C6A5
+    // style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(242, 140, 140);  // #F28C8C
+    // style.visuals.widgets.active.bg_fill = egui::Color32::from_rgb(225, 91, 100);    // #E15B64
+    // style.visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(161, 134, 111); // #A1866F
+    // 
+    // 
+    // style.visuals.window_rounding = egui::Rounding::same(6.0);
+    // style.visuals.window_shadow = egui::epaint::Shadow::small_dark();
+    // style.spacing.item_spacing = egui::vec2(8.0, 8.0);
+
+    ctx.set_style(style);
+
+
+
+
+    egui::Window::new("Flower Editor").show(&ctx, |ui| {
         model.current_gene.egui(ui);
     });
 }
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
+    let mouse_position = app.mouse.position();
+    let orientation = random::<f32>() * TAU;
+
     match event {
         MousePressed(button) => {
-            let mouse_position = app.mouse.position();
-            let orientation = random::<f32>() * TAU;
             model.mouse_down = true;
+            model.mouse_history.push(mouse_position);
            
             match button {
                 MouseButton::Left => {
@@ -113,37 +145,22 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
                 _ => {}
             }
         }
+        MouseReleased(button) => {
+            if button == MouseButton::Left {
+                model.mouse_down = false;
+                model.mouse_history.clear();
+            }
+        }
+        MouseMoved(p) => {
+            if model.mouse_down {
+                if model.mouse_history.last().map_or(true, |last| last.distance(p) > model.current_gene.size_px + 1.0) {
+                    model.mouse_history.push(p);
 
-        KeyPressed(key) => {
-            match key {
-                VirtualKeyCode::Key1 => {
-                    model.current_gene = FlowerGene::default()
+                    if let Some(scaled_flower) = can_place_flower(app, model, mouse_position) {
+                        let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
+                        model.flowers.push(new_flower);
+                    }
                 }
-                // VirtualKeyCode::Key2 => {
-                //     model.current_gene = FlowerGene {
-                //         centre_radius: 25.0,
-                //         centre_dist: 50.0,
-                //         centre_color: Srgb::<u8>::new(245, 213, 71).into_lin_srgba(),
-                //         num_petals: 9,
-                //         petal_radius: 40.0,
-                //         petal_color: Srgb::<u8>::new(232, 174, 183).into_lin_srgba(),
-                //         bloom_duration: 7.0,
-                //         ..Default::default()
-                //     }
-                // }
-                // VirtualKeyCode::Key3 => {
-                //     model.current_gene = FlowerGene {
-                //         centre_radius: 25.0,
-                //         centre_dist: 50.0,
-                //         centre_color: Srgb::<u8>::new(216, 111, 69).into_lin_srgba(),
-                //         num_petals: 6,
-                //         petal_radius: 40.0,
-                //         petal_color: Srgb::<u8>::new(189, 160, 203).into_lin_srgba(),
-                //         bloom_duration: 7.0,
-                //         ..Default::default()
-                //     }
-                // }
-                _ => {}
             }
         }
         _ => {}
@@ -151,15 +168,7 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
 }
 
 fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
-    let max_radius = Flower::max_radius(app, cursor_pos, &model.flowers);
-    if max_radius.is_finite() {
-        // draw.ellipse().xy(cursor_pos).no_fill().radius(max_radius).stroke(BLUE).stroke_weight(3.0);
-    }
-
     let colour = if let Some(gene) = can_place_flower(app, model, cursor_pos) {
-    //     draw.ellipse().xy(cursor_pos).no_fill().radius(gene.size_px).stroke(PURPLE).stroke_weight(2.0);
-    // 
-    // 
         rgb8(90, 62, 43)
     } else {
         RED
@@ -185,14 +194,6 @@ fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
 fn can_place_flower(app: &App, model: &Model, mouse_position: Vec2) -> Option<FlowerGene> {
     let max_radius = Flower::max_radius(app, mouse_position, &model.flowers);
     let scale = (max_radius / model.current_gene.size_px).min(1.0);
-    // let border = app.main_window().rect();
-    
-    // let within_border = mouse_position.x - scale >= border.left()
-    //     && mouse_position.x + scale <= border.right()
-    //     && mouse_position.y + scale <= border.top()
-    //     && mouse_position.y - scale >= border.bottom();
-    
-    // if model.egui;
     
     if scale > 0.25 {
         let mut new = model.current_gene.clone();
