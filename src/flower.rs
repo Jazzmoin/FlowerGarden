@@ -7,7 +7,7 @@ use nannou::prelude::*;
 use std::time::Instant;
 use nannou_egui::color_picker::Alpha;
 use nannou_egui::egui::emath::Numeric;
-use nannou_egui::egui::{Color32, Ui};
+use nannou_egui::egui::{Color32, Rounding, Stroke, Style, Ui};
 
 #[derive(Clone, Debug)]
 pub(crate) struct FlowerGene {
@@ -64,9 +64,10 @@ impl FlowerGene {
     fn picker(value: &mut LinSrgba, name: &str, ui: &mut Ui) {
         ui.label(name);
         let c: Srgba<u8> = value.into_encoding().into_format();
-        let mut c = Color32::from_rgb(c.red, c.green, c.blue);
-        if egui::color_picker::color_picker_color32(ui, &mut c, Alpha::Opaque) {
-            *value = Srgb::<u8>::from_components((c.r(), c.g(), c.b())).into_lin_srgba();
+        let mut x = [c.red, c.green, c.blue];
+        // let mut c = Color32::from_rgb(c.red, c.green, c.blue);
+        if egui::color_picker::color_edit_button_srgb(ui, &mut x).changed() {
+            *value = Srgb::<u8>::from_components((x[0], x[1], x[2])).into_lin_srgba();
         };
     }
 }
@@ -175,4 +176,31 @@ pub fn mult_colour(colour: LinSrgba<f32>, mult: f32) -> LinSrgba {
     colour.green *= mult;
 
     colour
+}
+
+pub fn egui_theme(style: &mut Style) {
+    // let background_colour = Color32::from_rgb(45, 66, 56);       
+    // let slider_outline_colour = Color32::from_rgb(163, 196, 188); 
+    // let slider_toggle_colour = Color32::from_rgb(217, 202, 179); 
+    // let text_colour = Color32::from_rgb(249, 245, 236);         
+    // 
+    // // Window background and rounding
+    // style.visuals.window_fill = background_colour;
+    // style.visuals.window_rounding = Rounding::same(6.0);
+    // 
+    // // Inactive widgets (normal state)
+    // style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, text_colour);
+    // style.visuals.widgets.inactive.rounding = Rounding::same(4.0);
+    // 
+    // // Hovered widgets (mouse over)
+    // style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, text_colour);
+    // style.visuals.widgets.hovered.rounding = Rounding::same(4.0);
+    // 
+    // // Active widgets (clicked or dragging)
+    // style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, text_colour);
+    // style.visuals.widgets.active.rounding = Rounding::same(4.0);
+    // 
+    // // Noninteractive widgets (disabled)
+    // style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, text_colour);
+    // style.visuals.widgets.noninteractive.rounding = Rounding::same(4.0);
 }

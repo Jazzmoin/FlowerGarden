@@ -11,7 +11,6 @@ use flower::*;
 //  - github repo
 //  - flower death
 //  - petal shapes
-//  - three flower presets
 //  - allow the flowers to spread on their own
 //  - serialisable flower gene (google serde derive)
 
@@ -96,32 +95,19 @@ fn update(_app: &App, model: &mut Model, update: Update) {
 
     let mut style = (*ctx.style()).clone();
     style.visuals = egui::Visuals::dark();
-    // 
-    // style.visuals.window_fill = egui::Color32::from_rgb(253, 246, 227); // #FDF6E3
-    // 
-    // style.visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(244, 198, 165); // #F4C6A5
-    // style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(242, 140, 140);  // #F28C8C
-    // style.visuals.widgets.active.bg_fill = egui::Color32::from_rgb(225, 91, 100);    // #E15B64
-    // style.visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(161, 134, 111); // #A1866F
-    // 
-    // 
-    // style.visuals.window_rounding = egui::Rounding::same(6.0);
-    // style.visuals.window_shadow = egui::epaint::Shadow::small_dark();
-    // style.spacing.item_spacing = egui::vec2(8.0, 8.0);
-
+    egui_theme(&mut style);
     ctx.set_style(style);
-
-
-
 
     egui::Window::new("Flower Editor").show(&ctx, |ui| {
         model.current_gene.egui(ui);
+        if ui.button("Reset").clicked() {
+            model.flowers.clear()
+        }
     });
 }
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
     let mouse_position = app.mouse.position();
-    let orientation = random::<f32>() * TAU;
 
     match event {
         MousePressed(button) => {
@@ -129,12 +115,6 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
             model.mouse_history.push(mouse_position);
            
             match button {
-                MouseButton::Left => {
-                    if let Some(scaled_flower) = can_place_flower(app, model, mouse_position) {
-                        let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
-                        model.flowers.push(new_flower);
-                    }
-                }
                 MouseButton::Right => {
                     if let Some(flower_index) = model.flowers.iter().position(|f|{
                         mouse_position.distance(f.pos) < f.gene.size_px
@@ -148,19 +128,21 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
         MouseReleased(button) => {
             if button == MouseButton::Left {
                 model.mouse_down = false;
+                for point in model.mouse_history.iter() {
+                    if let Some(scaled_flower) = can_place_flower(app, model, *point) {
+                        let orientation = random::<f32>() * TAU;
+                        let new_flower = Flower::new(*point, scaled_flower, orientation);
+                        model.flowers.push(new_flower);
+                    }
+                }
+                
+                
                 model.mouse_history.clear();
             }
         }
         MouseMoved(p) => {
             if model.mouse_down {
-                if model.mouse_history.last().map_or(true, |last| last.distance(p) > model.current_gene.size_px + 1.0) {
-                    model.mouse_history.push(p);
-
-                    if let Some(scaled_flower) = can_place_flower(app, model, mouse_position) {
-                        let new_flower = Flower::new(mouse_position, scaled_flower, orientation);
-                        model.flowers.push(new_flower);
-                    }
-                }
+               model.mouse_history.push(p);
             }
         }
         _ => {}
@@ -168,7 +150,7 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
 }
 
 fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
-    let colour = if let Some(gene) = can_place_flower(app, model, cursor_pos) {
+    let colour = if let Some(_gene) = can_place_flower(app, model, cursor_pos) {
         rgb8(90, 62, 43)
     } else {
         RED
