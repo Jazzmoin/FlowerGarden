@@ -19,7 +19,7 @@ pub(crate) struct FlowerGene {
     pub(crate) centre_radius_inner_prop: f32,
     pub(crate) centre_radius_outer_prop: f32,
     pub(crate) centre_dist_prop: f32,
-    pub(crate) petal_radius_prop: f32,
+    // pub(crate) petal_radius_prop: f32,
     pub(crate) petal_width_prop: f32,
     pub(crate) num_petals: usize,
     pub(crate) bloom_duration: f32,
@@ -34,9 +34,8 @@ impl Default for FlowerGene {
             size_px: 65.0,
             centre_radius_inner_prop: 0.3,
             centre_radius_outer_prop: 0.4,
-            centre_dist_prop: 0.99,
-            petal_radius_prop: 0.62,
-            petal_width_prop: 0.42,
+            centre_dist_prop: 0.62,
+            petal_width_prop: 0.62,
             num_petals: 5,
             bloom_duration: 5.0,
             life_span: 10.0,
@@ -50,13 +49,11 @@ impl FlowerGene {
     pub fn egui(&mut self, ui: &mut Ui) {
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
-        FlowerGene::slider(&mut self.centre_radius_outer_prop,"Centre Radius (Outer):",0.0..=1.0, ui, );
+        FlowerGene::slider(&mut self.centre_radius_outer_prop,"Centre Radius (Outer):",(self.centre_radius_inner_prop+0.05)..=(self.centre_radius_inner_prop+0.2), ui, );
 
-        FlowerGene::slider(&mut self.centre_radius_inner_prop, "Centre Radius (Inner):", 0.0..=1.0, ui, );
+        FlowerGene::slider(&mut self.centre_radius_inner_prop, "Centre Radius (Inner):", 0.05..=0.5, ui, );
 
-        FlowerGene::slider(&mut self.centre_dist_prop, "Centre Distance:", 0.0..=1.0, ui, );
-
-        FlowerGene::slider(&mut self.petal_radius_prop, "Petal Radius:", 0.0..=1.0, ui);
+        FlowerGene::slider(&mut self.centre_dist_prop, "Centre Distance:", 0.4..=0.65, ui, );
 
         FlowerGene::slider(&mut self.petal_width_prop, "Petal Width:", 0.0..=1.0, ui);
 
@@ -167,10 +164,10 @@ impl Flower {
             x
         };
 
-        let sum = self.gene.centre_dist_prop + self.gene.petal_radius_prop;
-        let petal_distance = self.gene.centre_dist_prop / sum;
-        let petal_radius = self.gene.petal_radius_prop / sum;
-        let petal_width = self.gene.petal_width_prop / sum;
+        // let sum = self.gene.centre_dist_prop + self.gene.petal_radius_prop;
+        let petal_distance = self.gene.centre_dist_prop;
+        let petal_radius = 1.0 - self.gene.centre_dist_prop;
+        let petal_width = self.gene.petal_width_prop * petal_radius;
 
         let petal_wh = Vec2::new(petal_radius, petal_width) * 2.0;
 

@@ -9,8 +9,12 @@ use std::time::Instant;
 // TODO:
 //  - new name
 //  - github repo
-//  - flower death
-//  - allow the flowers to spread on their own
+//  - OPTIONAL: allow the flowers to spread on their own
+//  - Right click and drag to remove
+//  - Save flower file to folder on save (Use file name as flower name)
+//  - List saved flowers (with names) from folder
+//  - Restrict flower gene sliders to only make good flowers
+//  - Remove dead flowers from `model.flowers` with `vec.retain` in `update` method. OR remove flower dying feature
 
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
