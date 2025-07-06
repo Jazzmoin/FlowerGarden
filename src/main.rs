@@ -1,46 +1,42 @@
 mod flower;
 
-use nannou::prelude::*;
-use nannou;
-use std::time::Instant;
-use nannou_egui::{self, egui, Egui};
 use flower::*;
+use nannou;
+use nannou::prelude::*;
+use nannou_egui::{self, egui, Egui};
+use std::time::Instant;
 
 // TODO:
 //  - new name
 //  - github repo
 //  - flower death
-//  - petal shapes
 //  - allow the flowers to spread on their own
-//  - serialisable flower gene (google serde derive)
 
-
-const WIDTH:u32 = 1920;
-const HEIGHT:u32 = 1080;
+const WIDTH: u32 = 1920;
+const HEIGHT: u32 = 1080;
 
 struct Model {
     flowers: Vec<Flower>,
     current_gene: FlowerGene,
     egui: Egui,
     mouse_down: bool,
-    mouse_history: Vec<Vec2>
+    mouse_history: Vec<Vec2>,
 }
 
 fn main() {
-    nannou::app(setup)
-        .update(update)
-        .fullscreen()
-        .run();
+    nannou::app(setup).update(update).fullscreen().run();
 }
 
 fn setup(app: &App) -> Model {
-    let window_id = app.new_window()
+    let window_id = app
+        .new_window()
         .size(WIDTH, HEIGHT)
         .title("Bloup")
         .view(view)
         .raw_event(raw_window_event)
         .event(event)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let window = app.window(window_id).unwrap();
     let egui = Egui::from_window(&window);
@@ -95,7 +91,6 @@ fn update(_app: &App, model: &mut Model, update: Update) {
 
     let mut style = (*ctx.style()).clone();
     style.visuals = egui::Visuals::dark();
-    egui_theme(&mut style);
     ctx.set_style(style);
 
     egui::Window::new("Flower Editor").show(&ctx, |ui| {
@@ -110,21 +105,22 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
     let mouse_position = app.mouse.position();
 
     match event {
-        MousePressed(button) => {
-            model.mouse_down = true;
-            model.mouse_history.push(mouse_position);
-           
-            match button {
-                MouseButton::Right => {
-                    if let Some(flower_index) = model.flowers.iter().position(|f|{
-                        mouse_position.distance(f.pos) < f.gene.size_px
-                    }) {
-                        model.flowers.remove(flower_index);
-                    }
-                }
-                _ => {}
+        MousePressed(button) => match button {
+            MouseButton::Left => {
+                model.mouse_down = true;
+                model.mouse_history.push(mouse_position);
             }
-        }
+            MouseButton::Right => {
+                if let Some(flower_index) = model
+                    .flowers
+                    .iter()
+                    .position(|f| mouse_position.distance(f.pos) < f.gene.size_px)
+                {
+                    model.flowers.remove(flower_index);
+                }
+            }
+            _ => {}
+        },
         MouseReleased(button) => {
             if button == MouseButton::Left {
                 model.mouse_down = false;
@@ -135,14 +131,12 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
                         model.flowers.push(new_flower);
                     }
                 }
-                
-                
                 model.mouse_history.clear();
             }
         }
         MouseMoved(p) => {
             if model.mouse_down {
-               model.mouse_history.push(p);
+                model.mouse_history.push(p);
             }
         }
         _ => {}
@@ -176,7 +170,7 @@ fn draw_cursor(app: &App, draw: &Draw, model: &Model, cursor_pos: Vec2) {
 fn can_place_flower(app: &App, model: &Model, mouse_position: Vec2) -> Option<FlowerGene> {
     let max_radius = Flower::max_radius(app, mouse_position, &model.flowers);
     let scale = (max_radius / model.current_gene.size_px).min(1.0);
-    
+
     if scale > 0.25 {
         let mut new = model.current_gene.clone();
         new.size_px *= scale;

@@ -1,15 +1,19 @@
-use std::ops::RangeInclusive;
-use nannou::color::conv::IntoLinSrgba;
 use crate::*;
 use nannou;
+use nannou::color::conv::IntoLinSrgba;
 use nannou::prelude::*;
+use std::ops::RangeInclusive;
 
-use std::time::Instant;
-use nannou_egui::color_picker::Alpha;
+use clipboard_win::{
+    get_clipboard_string, set_clipboard_string,
+};
+use nannou::color::{Srgb, Srgba};
 use nannou_egui::egui::emath::Numeric;
-use nannou_egui::egui::{Color32, Rounding, Stroke, Style, Ui};
+use nannou_egui::egui::Ui;
+use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct FlowerGene {
     pub(crate) size_px: f32,
     pub(crate) centre_radius_inner_prop: f32,
@@ -19,6 +23,7 @@ pub(crate) struct FlowerGene {
     pub(crate) petal_width_prop: f32,
     pub(crate) num_petals: usize,
     pub(crate) bloom_duration: f32,
+    pub(crate) life_span: f32,
     pub(crate) centre_color: LinSrgba<f32>,
     pub(crate) petal_color: LinSrgba<f32>,
 }
@@ -30,10 +35,11 @@ impl Default for FlowerGene {
             centre_radius_inner_prop: 0.3,
             centre_radius_outer_prop: 0.4,
             centre_dist_prop: 0.99,
-            petal_radius_prop: 0.62 ,
+            petal_radius_prop: 0.62,
             petal_width_prop: 0.42,
             num_petals: 5,
             bloom_duration: 5.0,
+            life_span: 10.0,
             centre_color: Srgb::<u8>::new(236, 178, 63).into_lin_srgba(),
             petal_color: FLORALWHITE.into_lin_srgba(),
         }
@@ -44,31 +50,67 @@ impl FlowerGene {
     pub fn egui(&mut self, ui: &mut Ui) {
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
-        FlowerGene::stepped_slider(&mut self.num_petals, "Petal Count:", 4..=20, ui,2.0);
+        FlowerGene::slider(&mut self.centre_radius_outer_prop,"Centre Radius (Outer):",0.0..=1.0, ui, );
+
+        FlowerGene::slider(&mut self.centre_radius_inner_prop, "Centre Radius (Inner):", 0.0..=1.0, ui, );
+
+        FlowerGene::slider(&mut self.centre_dist_prop, "Centre Distance:", 0.0..=1.0, ui, );
+
+        FlowerGene::slider(&mut self.petal_radius_prop, "Petal Radius:", 0.0..=1.0, ui);
+
+        FlowerGene::slider(&mut self.petal_width_prop, "Petal Width:", 0.0..=1.0, ui);
+
+        FlowerGene::stepped_slider(&mut self.num_petals, "Petal Count:", 4..=20, ui, 2.0);
 
         FlowerGene::slider(&mut self.bloom_duration, "Bloom Duration:", 1.0..=10.0, ui);
 
         FlowerGene::picker(&mut self.petal_color, "Petal Colour:", ui);
+
+        if ui.button("Save Flower").clicked() {
+            if let Ok(ser_flower) = serde_json::to_string_pretty(self) {
+                let _ = set_clipboard_string(&ser_flower);
+            }
+        }
+
+        if ui.button("Paste Flower").clicked() {
+            if let Ok(flower_string) = get_clipboard_string() {
+                if let Ok(flower) = serde_json::from_str(&flower_string) {
+                    *self = flower;
+                }
+            }
+        }
     }
-    
+
     fn slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui) {
         ui.label(name);
         ui.add(egui::Slider::new(value, range));
     }
-    
-    fn stepped_slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui, step: f64) {
+
+    fn stepped_slider<T: Numeric>(
+        value: &mut T,
+        name: &str,
+        range: RangeInclusive<T>,
+        ui: &mut Ui,
+        step: f64,
+    ) {
         ui.label(name);
         ui.add(egui::Slider::new(value, range).step_by(step));
     }
 
     fn picker(value: &mut LinSrgba, name: &str, ui: &mut Ui) {
         ui.label(name);
-        let c: Srgba<u8> = value.into_encoding().into_format();
-        let mut x = [c.red, c.green, c.blue];
-        // let mut c = Color32::from_rgb(c.red, c.green, c.blue);
-        if egui::color_picker::color_edit_button_srgb(ui, &mut x).changed() {
-            *value = Srgb::<u8>::from_components((x[0], x[1], x[2])).into_lin_srgba();
-        };
+        let (r, g, b, _) = value
+            .into_linear() // γ‑encode
+            .into_format::<u8, u8>() // keep u8
+            .into();
+
+        let mut srgb8 = [r, g, b];
+
+        if egui::color_picker::color_edit_button_srgb(ui, &mut srgb8).changed() {
+            *value = Srgba::<u8>::from_components((srgb8[0], srgb8[1], srgb8[2], 255)) // still γ‑encoded
+                .into_format()
+                .into_linear();
+        }
     }
 }
 
@@ -104,9 +146,26 @@ impl Flower {
         (1.0 - (1.0 - x).powi(3)).clamp(0.0, 1.0)
     }
 
+    pub fn death_progress(&self, elapsed: f32) -> f32 {
+        let x = (elapsed - self.gene.life_span) / self.gene.bloom_duration;
+        1.0 - (1.0 - (1.0 - x).powi(3)).clamp(0.0, 1.0)
+    }
+
     pub fn draw(&self, draw: &Draw, current_time: &Instant) {
         let elapsed = current_time.duration_since(self.start_time).as_secs_f32();
         let scale = self.bloom_progress(elapsed) * self.gene.size_px;
+        let death_progress = self.death_progress(elapsed);
+
+        let centre_colour = {
+            let mut x = self.gene.centre_color;
+            x.alpha = death_progress;
+            x
+        };
+        let petal_color = {
+            let mut x = self.gene.petal_color;
+            x.alpha = death_progress;
+            x
+        };
 
         let sum = self.gene.centre_dist_prop + self.gene.petal_radius_prop;
         let petal_distance = self.gene.centre_dist_prop / sum;
@@ -126,45 +185,49 @@ impl Flower {
                 .z(-petal_z)
                 .wh(petal_wh * scale)
                 .rotate(petal_angle)
-                .color(self.gene.petal_color)
-                .stroke(mult_colour(self.gene.petal_color, 0.5))
+                .color(petal_color)
+                .stroke(mult_colour(petal_color, 0.8))
                 .stroke_weight(2.0);
         }
 
+        // outer centre (back)
         draw.ellipse()
             .xy(self.pos)
             .z(-2.0)
             .radius(self.gene.centre_radius_outer_prop * scale)
-            .color(self.gene.petal_color)
-            .stroke(mult_colour(self.gene.petal_color, 0.5))
+            .color(petal_color)
+            .stroke(mult_colour(petal_color, 0.8))
             .stroke_weight(4.0);
 
+        // outer centre (front)
         draw.ellipse()
             .xy(self.pos)
             .radius(self.gene.centre_radius_outer_prop * scale)
-            .color(self.gene.petal_color);
+            .color(petal_color);
 
+        // inner centre
         draw.ellipse()
             .xy(self.pos)
             .radius(self.gene.centre_radius_inner_prop * scale)
-            .color(self.gene.centre_color);
+            .color(centre_colour);
     }
 
     pub fn max_radius(app: &App, new_pos: Vec2, others: &[Flower]) -> f32 {
         let radius = others
             .iter()
             .map(|other| other.pos.distance(new_pos) - other.gene.size_px)
-            .fold(f32::INFINITY, |acc, b| acc.min(b) )
-            .max(0.0) + 1.0;
-        
+            .fold(f32::INFINITY, |acc, b| acc.min(b))
+            .max(0.0)
+            + 1.0;
+
         let border = app.window_rect();
-        let left_dist:f32 = new_pos.x - border.left();
-        let right_dist:f32 = border.right() - new_pos.x;
-        let top_dist:f32 = border.top() - new_pos.y;
-        let bottom_dist:f32 = new_pos.y - border.bottom();
-        
+        let left_dist: f32 = new_pos.x - border.left();
+        let right_dist: f32 = border.right() - new_pos.x;
+        let top_dist: f32 = border.top() - new_pos.y;
+        let bottom_dist: f32 = new_pos.y - border.bottom();
+
         let closest_edge = left_dist.min(right_dist).min(top_dist).min(bottom_dist);
-        
+
         radius.min(closest_edge)
     }
 }
@@ -176,31 +239,4 @@ pub fn mult_colour(colour: LinSrgba<f32>, mult: f32) -> LinSrgba {
     colour.green *= mult;
 
     colour
-}
-
-pub fn egui_theme(style: &mut Style) {
-    // let background_colour = Color32::from_rgb(45, 66, 56);       
-    // let slider_outline_colour = Color32::from_rgb(163, 196, 188); 
-    // let slider_toggle_colour = Color32::from_rgb(217, 202, 179); 
-    // let text_colour = Color32::from_rgb(249, 245, 236);         
-    // 
-    // // Window background and rounding
-    // style.visuals.window_fill = background_colour;
-    // style.visuals.window_rounding = Rounding::same(6.0);
-    // 
-    // // Inactive widgets (normal state)
-    // style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, text_colour);
-    // style.visuals.widgets.inactive.rounding = Rounding::same(4.0);
-    // 
-    // // Hovered widgets (mouse over)
-    // style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, text_colour);
-    // style.visuals.widgets.hovered.rounding = Rounding::same(4.0);
-    // 
-    // // Active widgets (clicked or dragging)
-    // style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, text_colour);
-    // style.visuals.widgets.active.rounding = Rounding::same(4.0);
-    // 
-    // // Noninteractive widgets (disabled)
-    // style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, text_colour);
-    // style.visuals.widgets.noninteractive.rounding = Rounding::same(4.0);
 }
