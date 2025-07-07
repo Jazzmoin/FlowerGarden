@@ -9,12 +9,12 @@ use std::time::Instant;
 // TODO:
 //  - new name
 //  - github repo
-//  - OPTIONAL: allow the flowers to spread on their own
 //  - Right click and drag to remove
 //  - Save flower file to folder on save (Use file name as flower name)
 //  - List saved flowers (with names) from folder
 //  - Restrict flower gene sliders to only make good flowers
 //  - Remove dead flowers from `model.flowers` with `vec.retain` in `update` method. OR remove flower dying feature
+//  - OPTIONAL: allow the flowers to spread on their own
 
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
@@ -110,23 +110,29 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
 
     match event {
         MousePressed(button) => match button {
-            MouseButton::Left => {
+            // MouseButton::Left => {
+            //     model.mouse_down = true;
+            //     model.mouse_history.push(mouse_position);
+            // }
+            // MouseButton::Right => {
+            //     model.mouse_down = true;
+            //     model.mouse_history.push(mouse_position);
+            //
+            //     // if let Some(flower_index) = model
+            //     //     .flowers
+            //     //     .iter()
+            //     //     .position(|f| mouse_position.distance(f.pos) < f.gene.size_px)
+            //     // {
+            //     //     model.flowers.remove(flower_index);
+            //     // }
+            // }
+            _ => {
                 model.mouse_down = true;
                 model.mouse_history.push(mouse_position);
             }
-            MouseButton::Right => {
-                if let Some(flower_index) = model
-                    .flowers
-                    .iter()
-                    .position(|f| mouse_position.distance(f.pos) < f.gene.size_px)
-                {
-                    model.flowers.remove(flower_index);
-                }
-            }
-            _ => {}
         },
-        MouseReleased(button) => {
-            if button == MouseButton::Left {
+        MouseReleased(button) => match button {
+            MouseButton::Left => {
                 model.mouse_down = false;
                 for point in model.mouse_history.iter() {
                     if let Some(scaled_flower) = can_place_flower(app, model, *point) {
@@ -137,6 +143,13 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
                 }
                 model.mouse_history.clear();
             }
+            MouseButton::Right  => {
+                model.mouse_down = false;
+                let points = model.mouse_history.clone();
+                model.flowers.retain(|f| !points.iter().any(|p| p.distance(f.pos) < f.gene.size_px));
+                model.mouse_history.clear();
+            }
+            _ => {}
         }
         MouseMoved(p) => {
             if model.mouse_down {

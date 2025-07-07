@@ -13,6 +13,9 @@ use nannou_egui::egui::Ui;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+// PathBuf::from(std::env::var("APPDATA")).join("FOLDER NAME")
+
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct FlowerGene {
     pub(crate) size_px: f32,
@@ -148,6 +151,10 @@ impl Flower {
         1.0 - (1.0 - (1.0 - x).powi(3)).clamp(0.0, 1.0)
     }
 
+    pub fn is_dead(&self) -> bool {
+        todo!()
+    }
+
     pub fn draw(&self, draw: &Draw, current_time: &Instant) {
         let elapsed = current_time.duration_since(self.start_time).as_secs_f32();
         let scale = self.bloom_progress(elapsed) * self.gene.size_px;
@@ -159,16 +166,14 @@ impl Flower {
             x
         };
         let petal_color = {
-            let mut x = self.gene.petal_color;
-            x.alpha = death_progress;
-            x
+            let mut petal_color = self.gene.petal_color;
+            petal_color.alpha = death_progress;
+            petal_color
         };
 
-        // let sum = self.gene.centre_dist_prop + self.gene.petal_radius_prop;
         let petal_distance = self.gene.centre_dist_prop;
         let petal_radius = 1.0 - self.gene.centre_dist_prop;
         let petal_width = self.gene.petal_width_prop * petal_radius;
-
         let petal_wh = Vec2::new(petal_radius, petal_width) * 2.0;
 
         for petal in 0..self.gene.num_petals {
@@ -184,7 +189,7 @@ impl Flower {
                 .rotate(petal_angle)
                 .color(petal_color)
                 .stroke(mult_colour(petal_color, 0.8))
-                .stroke_weight(2.0);
+                .stroke_weight(2.0 * scale / 100.);
         }
 
         // outer centre (back)
@@ -194,7 +199,7 @@ impl Flower {
             .radius(self.gene.centre_radius_outer_prop * scale)
             .color(petal_color)
             .stroke(mult_colour(petal_color, 0.8))
-            .stroke_weight(4.0);
+            .stroke_weight(4.0 * scale / 100.);
 
         // outer centre (front)
         draw.ellipse()
