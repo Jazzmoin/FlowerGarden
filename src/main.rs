@@ -3,11 +3,10 @@ mod flower;
 use flower::*;
 use nannou;
 use nannou::prelude::*;
-use nannou_egui::{self, egui, Egui};
+use nannou_egui::{self, Egui, egui};
 use std::time::Instant;
 
 // TODO:
-//  - new name
 //  - github repo
 //  - OPTIONAL: allow the flowers to spread on their own
 
@@ -29,7 +28,7 @@ fn setup(app: &App) -> Model {
     let window_id = app
         .new_window()
         .size(1920, 1080)
-        .title("Bloup")
+        .title("FlowerGarden")
         .view(view)
         .raw_event(raw_window_event)
         .event(event)
@@ -94,7 +93,9 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     ctx.set_style(style);
 
     egui::Window::new("Flower Editor").show(&ctx, |ui| {
-        model.current_gene.egui(ui, &mut model.file_name, &mut model.enable_flower_death);
+        model
+            .current_gene
+            .egui(ui, &mut model.file_name, &mut model.enable_flower_death);
 
         ui.add_space(15.0);
         if ui.button("Clear Garden").clicked() {
@@ -129,14 +130,16 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
                 }
                 model.mouse_history.clear();
             }
-            MouseButton::Right  => {
+            MouseButton::Right => {
                 model.mouse_down = false;
                 let points = model.mouse_history.clone();
-                model.flowers.retain(|f| !points.iter().any(|p| p.distance(f.pos) < f.gene.size_px));
+                model
+                    .flowers
+                    .retain(|f| !points.iter().any(|p| p.distance(f.pos) < f.gene.size_px));
                 model.mouse_history.clear();
             }
             _ => {}
-        }
+        },
         MouseMoved(p) => {
             if model.mouse_down {
                 model.mouse_history.push(p);

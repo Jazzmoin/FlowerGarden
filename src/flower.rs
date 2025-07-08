@@ -1,17 +1,16 @@
-use egui::ComboBox;
-use std::fs;
 use crate::*;
+use egui::ComboBox;
 use nannou;
 use nannou::color::conv::IntoLinSrgba;
+use nannou::color::{Srgb, Srgba};
 use nannou::prelude::*;
+use nannou_egui::egui::Ui;
+use nannou_egui::egui::emath::Numeric;
+use serde::{Deserialize, Serialize};
+use std::fs;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use nannou::color::{Srgb, Srgba};
-use nannou_egui::egui::emath::Numeric;
-use nannou_egui::egui::Ui;
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
-use clipboard_win::types::BOOL;
 // PathBuf::from(std::env::var("APPDATA")).join("FOLDER NAME")
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -51,11 +50,26 @@ impl FlowerGene {
 
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
-        FlowerGene::slider(&mut self.centre_radius_outer_prop,"Centre Radius (Outer):",(self.centre_radius_inner_prop+0.05)..=(self.centre_radius_inner_prop+0.2), ui, );
+        FlowerGene::slider(
+            &mut self.centre_radius_outer_prop,
+            "Centre Radius (Outer):",
+            (self.centre_radius_inner_prop + 0.05)..=(self.centre_radius_inner_prop + 0.2),
+            ui,
+        );
 
-        FlowerGene::slider(&mut self.centre_radius_inner_prop, "Centre Radius (Inner):", 0.05..=0.5, ui, );
+        FlowerGene::slider(
+            &mut self.centre_radius_inner_prop,
+            "Centre Radius (Inner):",
+            0.05..=0.5,
+            ui,
+        );
 
-        FlowerGene::slider(&mut self.centre_dist_prop, "Centre Distance:", 0.4..=0.65, ui, );
+        FlowerGene::slider(
+            &mut self.centre_dist_prop,
+            "Centre Distance:",
+            0.4..=0.65,
+            ui,
+        );
 
         FlowerGene::slider(&mut self.petal_width_prop, "Petal Width:", 0.0..=1.0, ui);
 
@@ -142,7 +156,13 @@ impl FlowerGene {
         ui.add(egui::Slider::new(value, range));
     }
 
-    fn stepped_slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui, step: f64, ) {
+    fn stepped_slider<T: Numeric>(
+        value: &mut T,
+        name: &str,
+        range: RangeInclusive<T>,
+        ui: &mut Ui,
+        step: f64,
+    ) {
         ui.label(name);
         ui.add(egui::Slider::new(value, range).step_by(step));
     }
@@ -298,8 +318,9 @@ pub fn load_flower_presets() -> Vec<String> {
                 .filter_map(Result::ok)
                 .filter_map(|entry| {
                     let path = entry.path();
-                    path.file_name()?.to_str().map(|s| {s.to_string()})
-            }).collect();
+                    path.file_name()?.to_str().map(|s| s.to_string())
+                })
+                .collect();
         }
     }
     vec![]
