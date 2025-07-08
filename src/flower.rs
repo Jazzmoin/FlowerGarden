@@ -66,6 +66,8 @@ impl FlowerGene {
 
         FlowerGene::picker(&mut self.petal_color, "Petal Colour:", ui);
 
+        FlowerGene::picker(&mut self.centre_color, "Centre Colour:", ui);
+
         if ui.button("Save Flower").clicked() {
             if let Ok(ser_flower) = serde_json::to_string_pretty(self) {
                 let _ = set_clipboard_string(&ser_flower);
@@ -152,7 +154,8 @@ impl Flower {
     }
 
     pub fn is_dead(&self) -> bool {
-        todo!()
+        let elapsed = self.start_time.elapsed().as_secs_f32();
+        elapsed > (self.gene.life_span + self.gene.bloom_duration)
     }
 
     pub fn draw(&self, draw: &Draw, current_time: &Instant) {

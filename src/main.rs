@@ -9,15 +9,9 @@ use std::time::Instant;
 // TODO:
 //  - new name
 //  - github repo
-//  - Right click and drag to remove
 //  - Save flower file to folder on save (Use file name as flower name)
 //  - List saved flowers (with names) from folder
-//  - Restrict flower gene sliders to only make good flowers
-//  - Remove dead flowers from `model.flowers` with `vec.retain` in `update` method. OR remove flower dying feature
 //  - OPTIONAL: allow the flowers to spread on their own
-
-const WIDTH: u32 = 1920;
-const HEIGHT: u32 = 1080;
 
 struct Model {
     flowers: Vec<Flower>,
@@ -34,7 +28,7 @@ fn main() {
 fn setup(app: &App) -> Model {
     let window_id = app
         .new_window()
-        .size(WIDTH, HEIGHT)
+        .size(1920, 1080)
         .title("Bloup")
         .view(view)
         .raw_event(raw_window_event)
@@ -103,6 +97,8 @@ fn update(_app: &App, model: &mut Model, update: Update) {
             model.flowers.clear()
         }
     });
+
+    model.flowers.retain(|f| !f.is_dead())
 }
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
