@@ -1,12 +1,12 @@
+use std::fmt::format;
+use std::fs;
 use crate::*;
 use nannou;
 use nannou::color::conv::IntoLinSrgba;
 use nannou::prelude::*;
 use std::ops::RangeInclusive;
-
-use clipboard_win::{
-    get_clipboard_string, set_clipboard_string,
-};
+use std::path::PathBuf;
+use clipboard_win::{get_clipboard_string, set_clipboard_string};
 use nannou::color::{Srgb, Srgba};
 use nannou_egui::egui::emath::Numeric;
 use nannou_egui::egui::Ui;
@@ -15,20 +15,18 @@ use std::time::Instant;
 
 // PathBuf::from(std::env::var("APPDATA")).join("FOLDER NAME")
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct FlowerGene {
     pub(crate) size_px: f32,
     pub(crate) centre_radius_inner_prop: f32,
     pub(crate) centre_radius_outer_prop: f32,
     pub(crate) centre_dist_prop: f32,
-    // pub(crate) petal_radius_prop: f32,
     pub(crate) petal_width_prop: f32,
     pub(crate) num_petals: usize,
     pub(crate) bloom_duration: f32,
     pub(crate) life_span: f32,
-    pub(crate) centre_color: LinSrgba<f32>,
-    pub(crate) petal_color: LinSrgba<f32>,
+    pub(crate) centre_colour: LinSrgba<f32>,
+    pub(crate) petal_colour: LinSrgba<f32>,
 }
 
 impl Default for FlowerGene {
@@ -42,14 +40,14 @@ impl Default for FlowerGene {
             num_petals: 5,
             bloom_duration: 5.0,
             life_span: 10.0,
-            centre_color: Srgb::<u8>::new(236, 178, 63).into_lin_srgba(),
-            petal_color: FLORALWHITE.into_lin_srgba(),
+            centre_colour: Srgb::<u8>::new(236, 178, 63).into_lin_srgba(),
+            petal_colour: FLORALWHITE.into_lin_srgba(),
         }
     }
 }
 
 impl FlowerGene {
-    pub fn egui(&mut self, ui: &mut Ui) {
+    pub fn egui(&mut self, ui: &mut Ui, flower_name: &mut String) {
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
         FlowerGene::slider(&mut self.centre_radius_outer_prop,"Centre Radius (Outer):",(self.centre_radius_inner_prop+0.05)..=(self.centre_radius_inner_prop+0.2), ui, );
@@ -64,23 +62,41 @@ impl FlowerGene {
 
         FlowerGene::slider(&mut self.bloom_duration, "Bloom Duration:", 1.0..=10.0, ui);
 
-        FlowerGene::picker(&mut self.petal_color, "Petal Colour:", ui);
+        FlowerGene::picker(&mut self.petal_colour, "Petal Colour:", ui);
 
-        FlowerGene::picker(&mut self.centre_color, "Centre Colour:", ui);
+        FlowerGene::picker(&mut self.centre_colour, "Centre Colour:", ui);
+
+        ui.separator();
+        ui.label("Flower Name:");
+        ui.text_edit_singleline(flower_name);
 
         if ui.button("Save Flower").clicked() {
-            if let Ok(ser_flower) = serde_json::to_string_pretty(self) {
-                let _ = set_clipboard_string(&ser_flower);
+            if let Ok(path) = std::env::var("APPDATA") {
+                let dir = PathBuf::from(path).join("Flower_Presets");
+                if fs::create_dir_all(&dir).is_ok() {
+                    if let Ok(ser_flower) = serde_json::to_string_pretty(self) {
+                        let file_name = if flower_name.is_empty() {
+                                "flower.json".to_string()
+                            } else {
+                                format!("{}.json", flower_name.trim())
+                            };
+                        let final_path = dir.join(file_name);
+                        let _ = fs::write(final_path, ser_flower);
+                    }
+                }
             }
         }
 
-        if ui.button("Paste Flower").clicked() {
+        ui.separator();
+
+        if ui.button("Load Flower").clicked() {
             if let Ok(flower_string) = get_clipboard_string() {
                 if let Ok(flower) = serde_json::from_str(&flower_string) {
                     *self = flower;
                 }
             }
         }
+
     }
 
     fn slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui) {
@@ -164,14 +180,14 @@ impl Flower {
         let death_progress = self.death_progress(elapsed);
 
         let centre_colour = {
-            let mut x = self.gene.centre_color;
+            let mut x = self.gene.centre_colour;
             x.alpha = death_progress;
             x
         };
-        let petal_color = {
-            let mut petal_color = self.gene.petal_color;
-            petal_color.alpha = death_progress;
-            petal_color
+        let petal_colour = {
+            let mut petal_colour = self.gene.petal_colour;
+            petal_colour.alpha = death_progress;
+            petal_colour
         };
 
         let petal_distance = self.gene.centre_dist_prop;
@@ -190,8 +206,8 @@ impl Flower {
                 .z(-petal_z)
                 .wh(petal_wh * scale)
                 .rotate(petal_angle)
-                .color(petal_color)
-                .stroke(mult_colour(petal_color, 0.8))
+                .color(petal_colour)
+                .stroke(mult_colour(petal_colour, 0.8))
                 .stroke_weight(2.0 * scale / 100.);
         }
 
@@ -200,15 +216,15 @@ impl Flower {
             .xy(self.pos)
             .z(-2.0)
             .radius(self.gene.centre_radius_outer_prop * scale)
-            .color(petal_color)
-            .stroke(mult_colour(petal_color, 0.8))
+            .color(petal_colour)
+            .stroke(mult_colour(petal_colour, 0.8))
             .stroke_weight(4.0 * scale / 100.);
 
         // outer centre (front)
         draw.ellipse()
             .xy(self.pos)
             .radius(self.gene.centre_radius_outer_prop * scale)
-            .color(petal_color);
+            .color(petal_colour);
 
         // inner centre
         draw.ellipse()

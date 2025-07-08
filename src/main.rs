@@ -9,7 +9,6 @@ use std::time::Instant;
 // TODO:
 //  - new name
 //  - github repo
-//  - Save flower file to folder on save (Use file name as flower name)
 //  - List saved flowers (with names) from folder
 //  - OPTIONAL: allow the flowers to spread on their own
 
@@ -17,6 +16,7 @@ struct Model {
     flowers: Vec<Flower>,
     current_gene: FlowerGene,
     egui: Egui,
+    file_name: String,
     mouse_down: bool,
     mouse_history: Vec<Vec2>,
 }
@@ -45,6 +45,7 @@ fn setup(app: &App) -> Model {
         flowers: Vec::new(),
         current_gene: Default::default(),
         egui,
+        file_name: String::new(),
         mouse_down: false,
         mouse_history: Vec::new(),
     }
@@ -92,7 +93,8 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     ctx.set_style(style);
 
     egui::Window::new("Flower Editor").show(&ctx, |ui| {
-        model.current_gene.egui(ui);
+        model.current_gene.egui(ui, &mut model.file_name);
+        
         if ui.button("Reset").clicked() {
             model.flowers.clear()
         }
