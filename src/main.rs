@@ -9,7 +9,6 @@ use std::time::Instant;
 // TODO:
 //  - new name
 //  - github repo
-//  - List saved flowers (with names) from folder
 //  - OPTIONAL: allow the flowers to spread on their own
 
 struct Model {
@@ -17,6 +16,7 @@ struct Model {
     current_gene: FlowerGene,
     egui: Egui,
     file_name: String,
+    enable_flower_death: bool,
     mouse_down: bool,
     mouse_history: Vec<Vec2>,
 }
@@ -46,6 +46,7 @@ fn setup(app: &App) -> Model {
         current_gene: Default::default(),
         egui,
         file_name: String::new(),
+        enable_flower_death: false,
         mouse_down: false,
         mouse_history: Vec::new(),
     }
@@ -57,7 +58,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let current_time = Instant::now();
     for flower in model.flowers.iter() {
-        flower.draw(&draw, &current_time);
+        flower.draw(&draw, &current_time, model.enable_flower_death);
     }
 
     // flower path guide
@@ -93,14 +94,17 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     ctx.set_style(style);
 
     egui::Window::new("Flower Editor").show(&ctx, |ui| {
-        model.current_gene.egui(ui, &mut model.file_name);
-        
-        if ui.button("Reset").clicked() {
+        model.current_gene.egui(ui, &mut model.file_name, &mut model.enable_flower_death);
+
+        ui.add_space(15.0);
+        if ui.button("Clear Garden").clicked() {
             model.flowers.clear()
         }
     });
 
-    model.flowers.retain(|f| !f.is_dead())
+    if model.enable_flower_death {
+        model.flowers.retain(|f| !f.is_dead())
+    }
 }
 
 fn event(app: &App, model: &mut Model, event: WindowEvent) {
@@ -108,22 +112,6 @@ fn event(app: &App, model: &mut Model, event: WindowEvent) {
 
     match event {
         MousePressed(button) => match button {
-            // MouseButton::Left => {
-            //     model.mouse_down = true;
-            //     model.mouse_history.push(mouse_position);
-            // }
-            // MouseButton::Right => {
-            //     model.mouse_down = true;
-            //     model.mouse_history.push(mouse_position);
-            //
-            //     // if let Some(flower_index) = model
-            //     //     .flowers
-            //     //     .iter()
-            //     //     .position(|f| mouse_position.distance(f.pos) < f.gene.size_px)
-            //     // {
-            //     //     model.flowers.remove(flower_index);
-            //     // }
-            // }
             _ => {
                 model.mouse_down = true;
                 model.mouse_history.push(mouse_position);

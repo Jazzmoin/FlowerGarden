@@ -1,4 +1,4 @@
-use std::fmt::format;
+use egui::ComboBox;
 use std::fs;
 use crate::*;
 use nannou;
@@ -6,13 +6,12 @@ use nannou::color::conv::IntoLinSrgba;
 use nannou::prelude::*;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use clipboard_win::{get_clipboard_string, set_clipboard_string};
 use nannou::color::{Srgb, Srgba};
 use nannou_egui::egui::emath::Numeric;
 use nannou_egui::egui::Ui;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
-
+use clipboard_win::types::BOOL;
 // PathBuf::from(std::env::var("APPDATA")).join("FOLDER NAME")
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -47,7 +46,9 @@ impl Default for FlowerGene {
 }
 
 impl FlowerGene {
-    pub fn egui(&mut self, ui: &mut Ui, flower_name: &mut String) {
+    pub fn egui(&mut self, ui: &mut Ui, flower_name: &mut String, enable_flower_death: &mut bool) {
+        let spacer = 15.0;
+
         FlowerGene::slider(&mut self.size_px, "Flower Size:", 10.0..=200.0, ui);
 
         FlowerGene::slider(&mut self.centre_radius_outer_prop,"Centre Radius (Outer):",(self.centre_radius_inner_prop+0.05)..=(self.centre_radius_inner_prop+0.2), ui, );
@@ -62,41 +63,78 @@ impl FlowerGene {
 
         FlowerGene::slider(&mut self.bloom_duration, "Bloom Duration:", 1.0..=10.0, ui);
 
+        ui.add_space(spacer);
+
+        ui.label("Enable Flower Death:");
+        let state = if *enable_flower_death {
+            "Enabled"
+        } else {
+            "Disabled"
+        };
+        ui.toggle_value(enable_flower_death, state);
+
+        ui.add_space(spacer);
+
         FlowerGene::picker(&mut self.petal_colour, "Petal Colour:", ui);
 
         FlowerGene::picker(&mut self.centre_colour, "Centre Colour:", ui);
 
-        ui.separator();
+        ui.add_space(spacer);
+
         ui.label("Flower Name:");
         ui.text_edit_singleline(flower_name);
 
-        if ui.button("Save Flower").clicked() {
-            if let Ok(path) = std::env::var("APPDATA") {
-                let dir = PathBuf::from(path).join("Flower_Presets");
+        let file_name = if flower_name.trim().is_empty() {
+            "flower.json".to_string()
+        } else {
+            format!("{}.json", flower_name.trim())
+        };
+
+        let mut save_button_text = "Save Flower";
+        if let Ok(path) = std::env::var("APPDATA") {
+            let dir = PathBuf::from(path).join("Flower_Presets");
+            let final_path = dir.join(&file_name);
+
+            if final_path.exists() {
+                save_button_text = "Update Flower";
+            }
+
+            if ui.button(save_button_text).clicked() {
                 if fs::create_dir_all(&dir).is_ok() {
                     if let Ok(ser_flower) = serde_json::to_string_pretty(self) {
-                        let file_name = if flower_name.is_empty() {
-                                "flower.json".to_string()
-                            } else {
-                                format!("{}.json", flower_name.trim())
-                            };
-                        let final_path = dir.join(file_name);
                         let _ = fs::write(final_path, ser_flower);
                     }
                 }
             }
         }
 
-        ui.separator();
+        ui.add_space(spacer);
 
-        if ui.button("Load Flower").clicked() {
-            if let Ok(flower_string) = get_clipboard_string() {
-                if let Ok(flower) = serde_json::from_str(&flower_string) {
-                    *self = flower;
+        let mut selected_file: Option<String> = None;
+        let flower_files = load_flower_presets();
+
+        ui.label("Load from Saved Preset:");
+        ComboBox::from_label("")
+            .selected_text("Select...")
+            .show_ui(ui, |files| {
+                for file in flower_files {
+                    if files.selectable_label(false, &file).clicked() {
+                        selected_file = Some(file)
+                    }
+                }
+            });
+
+        if let Some(file) = selected_file {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let path = PathBuf::from(appdata).join("Flower_Presets").join(&file);
+                if let Ok(data) = fs::read_to_string(path) {
+                    if let Ok(loaded_gene) = serde_json::from_str::<FlowerGene>(&data) {
+                        *self = loaded_gene;
+                        *flower_name = file.trim_end_matches(".json").to_string();
+                    }
                 }
             }
         }
-
     }
 
     fn slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui) {
@@ -104,13 +142,7 @@ impl FlowerGene {
         ui.add(egui::Slider::new(value, range));
     }
 
-    fn stepped_slider<T: Numeric>(
-        value: &mut T,
-        name: &str,
-        range: RangeInclusive<T>,
-        ui: &mut Ui,
-        step: f64,
-    ) {
+    fn stepped_slider<T: Numeric>(value: &mut T, name: &str, range: RangeInclusive<T>, ui: &mut Ui, step: f64, ) {
         ui.label(name);
         ui.add(egui::Slider::new(value, range).step_by(step));
     }
@@ -141,15 +173,6 @@ pub(crate) struct Flower {
 }
 
 impl Flower {
-    pub fn new_default(pos: Vec2) -> Self {
-        Flower {
-            gene: Default::default(),
-            pos,
-            start_time: Instant::now(),
-            orientation: 0.0,
-        }
-    }
-
     pub fn new(pos: Vec2, gene: FlowerGene, orientation: f32) -> Self {
         Self {
             gene,
@@ -174,10 +197,15 @@ impl Flower {
         elapsed > (self.gene.life_span + self.gene.bloom_duration)
     }
 
-    pub fn draw(&self, draw: &Draw, current_time: &Instant) {
+    pub fn draw(&self, draw: &Draw, current_time: &Instant, flower_death_enabled: bool) {
         let elapsed = current_time.duration_since(self.start_time).as_secs_f32();
         let scale = self.bloom_progress(elapsed) * self.gene.size_px;
-        let death_progress = self.death_progress(elapsed);
+
+        let death_progress = if flower_death_enabled {
+            self.death_progress(elapsed)
+        } else {
+            1.0
+        };
 
         let centre_colour = {
             let mut x = self.gene.centre_colour;
@@ -260,4 +288,19 @@ pub fn mult_colour(colour: LinSrgba<f32>, mult: f32) -> LinSrgba {
     colour.green *= mult;
 
     colour
+}
+
+pub fn load_flower_presets() -> Vec<String> {
+    if let Ok(path) = std::env::var("APPDATA") {
+        let dir = PathBuf::from(path).join("Flower_Presets");
+        if let Ok(entries) = fs::read_dir(dir) {
+            return entries
+                .filter_map(Result::ok)
+                .filter_map(|entry| {
+                    let path = entry.path();
+                    path.file_name()?.to_str().map(|s| {s.to_string()})
+            }).collect();
+        }
+    }
+    vec![]
 }
