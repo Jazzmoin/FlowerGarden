@@ -7,7 +7,6 @@ use nannou_egui::{self, Egui, egui};
 use std::time::Instant;
 
 // TODO:
-//  - github repo
 //  - OPTIONAL: allow the flowers to spread on their own
 
 struct Model {
